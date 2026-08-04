@@ -60,7 +60,7 @@ select#sortOrder { border-color: var(--primary); color: var(--primary-dark); fon
 .stat-label { font-size: 10px; color: var(--text-muted); font-weight: 600; margin-bottom: 2px; }
 .stat-value { font-size: 12px; font-weight: 700; white-space: nowrap; }
 .stat-value.ado-val { color: var(--success); } .stat-value.adg-val { color: var(--info); }
-.footer-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 10px; margin-top: auto; font-size: 11px; color: var(--text-muted); }
+.footer-row { display: flex; justify-content: flex-end; align-items: center; border-top: 1px solid var(--border); padding-top: 10px; margin-top: auto; font-size: 11px; color: var(--text-muted); }
 .itemid-box { font-family: monospace; background: var(--bg); padding: 2px 7px; border-radius: 4px; border: 1px dashed #ddd; cursor: pointer; }
 #imageModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; justify-content: center; align-items: center; cursor: zoom-out; }
 #imageModal img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
@@ -99,8 +99,8 @@ footer { text-align: center; color: var(--text-muted); font-size: 11px; padding:
         <option value="adgDesc">ADG MTD ↓</option>
         <option value="lsAdoDesc">LS ADO MTD ↓</option>
         <option value="lsAdgDesc">LS ADG MTD ↓</option>
-        <option value="momDesc">ADO MoM ↓ (增长最快)</option>
-        <option value="momAsc">ADO MoM ↑ (跌幅最大)</option>
+        <option value="momDesc">LS ADO MoM ↓ (增长最快)</option>
+        <option value="momAsc">LS ADO MoM ↑ (跌幅最大)</option>
       </select>
       <button class="btn-clear" onclick="clearFilters()">✕ 重置</button>
       <span class="count-badge" id="countDisplay">—</span>
@@ -115,8 +115,19 @@ footer { text-align: center; color: var(--text-muted); font-size: 11px; padding:
         <option value="TW">TW</option><option value="VN">VN</option>
       </select>
       <span class="filter-label">🏪 Seller Type</span>
-      <select id="sellerTypeFilter" onchange="applyFilters()"><option value="">全部类型</option></select>
-      <span class="filter-label">📈 ADO MoM</span>
+      <select id="sellerTypeFilter" onchange="applyFilters()">
+        <option value="">全部类型</option>
+        <option value="CB">CB</option>
+        <option value="CNLS">CNLS</option>
+      </select>
+      <span class="filter-label">🛠 Operation Type</span>
+      <select id="operationTypeFilter" onchange="applyFilters()">
+        <option value="">全部类型</option>
+        <option value="KOL">KOL</option>
+        <option value="Shop">Shop</option>
+        <option value="Others">Others</option>
+      </select>
+      <span class="filter-label">📈 LS ADO MoM</span>
       <select id="momFilter" onchange="applyFilters()">
         <option value="">全部趋势</option>
         <option value="pos">▲ 正增长</option>
@@ -138,6 +149,9 @@ footer { text-align: center; color: var(--text-muted); font-size: 11px; padding:
 const DATA_URL = './data.json';
 let products = [], filteredData = [], currentPage = 1;
 const pageSize = 40;
+
+const CB_TYPES = ['CNCB 1P', 'CNCB MP'];
+const CNLS_TYPES = ['CNLS - Reg role only', 'CNLS - RM role', 'Local Others'];
 
 function getFlagImgHtml(c) {
   if (!c || c.length !== 2) return '';
@@ -161,35 +175,36 @@ function normalizeSite(raw) {
 
 function normalizeItem(obj) {
   return {
-    itemid:       clean(obj['item_id'] || ''),
-    site:         normalizeSite(obj['grass_region'] || ''),
-    shop_name:    clean(obj['shop_name'] || ''),
-    l1:           clean(obj['cb_level1_global_be_category'] || ''),
-    l2:           clean(obj['level2_global_be_category'] || ''),
-    l3:           clean(obj['level3_global_be_category'] || ''),
-    l4:           clean(obj['level4_global_be_category'] || ''),
-    imgUrl:       clean(obj['item_image'] || ''),
-    item_link:    clean(obj['item_link'] || ''),
-    seller_type:  clean(obj['seller_type'] || ''),
-    cb_group:     clean(obj['cb_group'] || ''),
-    cluster:      clean(obj['cluster'] || ''),
-    update_time:  clean(obj['update_time'] || ''),
-    ado:          toNum(obj['mtd_ado(SUM)'] || 0),
-    ado_m1:       toNum(obj['m_1_ado(SUM)'] || 0),
-    ado_mom:      toNum(obj['ado_mom'] || 0),
-    ls_ado:       toNum(obj['mtd_ls_ado(SUM)'] || 0),
-    ls_ado_m1:    toNum(obj['m_1_ls_ado(SUM)'] || 0),
-    ls_ado_mom:   toNum(obj['ls_ado_mom'] || 0),
-    adg_usd:      toNum(obj['mtd_adgmv_usd(SUM)'] || 0),
-    adg_m1:       toNum(obj['m_1_adgmv_usd(SUM)'] || 0),
-    adg_mom:      toNum(obj['adgmv_mom'] || 0),
-    ls_adg_usd:   toNum(obj['mtd_ls_adgmv_usd(SUM)'] || 0),
-    ls_adg_m1:    toNum(obj['m_1_ls_adgmv_usd(SUM)'] || 0),
-    ls_adg_mom:   toNum(obj['ls_adgmv_mom'] || 0),
-    ls_ams_spend: toNum(obj['mtd_ls_ams_ad_spend_usd(SUM)'] || 0),
-    ls_ams_adi:   toNum(obj['mtd_ls_ams_adi(SUM)'] || 0),
-    ls_ams_adg:   toNum(obj['mtd_ls_ams_adgmv_usd(SUM)'] || 0),
-    ls_ams_ado:   toNum(obj['mtd_ls_ams_ado(SUM)'] || 0),
+    itemid:            clean(obj['item_id'] || ''),
+    site:              normalizeSite(obj['grass_region'] || ''),
+    shop_name:         clean(obj['shop_name'] || ''),
+    l1:                clean(obj['cb_level1_global_be_category'] || ''),
+    l2:                clean(obj['level2_global_be_category'] || ''),
+    l3:                clean(obj['level3_global_be_category'] || ''),
+    l4:                clean(obj['level4_global_be_category'] || ''),
+    imgUrl:            clean(obj['item_image'] || ''),
+    item_link:         clean(obj['item_link'] || ''),
+    seller_type:       clean(obj['seller_type'] || ''),
+    operation_type_l1: clean(obj['operation_type_l1'] || ''),
+    cb_group:          clean(obj['cb_group'] || ''),
+    cluster:           clean(obj['cluster'] || ''),
+    update_time:       clean(obj['update_time'] || ''),
+    ado:               toNum(obj['mtd_ado(SUM)'] || 0),
+    ado_m1:            toNum(obj['m_1_ado(SUM)'] || 0),
+    ado_mom:           toNum(obj['ado_mom'] || 0),
+    ls_ado:            toNum(obj['mtd_ls_ado(SUM)'] || 0),
+    ls_ado_m1:         toNum(obj['m_1_ls_ado(SUM)'] || 0),
+    ls_ado_mom:        toNum(obj['ls_ado_mom'] || 0),
+    adg_usd:           toNum(obj['mtd_adgmv_usd(SUM)'] || 0),
+    adg_m1:            toNum(obj['m_1_adgmv_usd(SUM)'] || 0),
+    adg_mom:           toNum(obj['adgmv_mom'] || 0),
+    ls_adg_usd:        toNum(obj['mtd_ls_adgmv_usd(SUM)'] || 0),
+    ls_adg_m1:         toNum(obj['m_1_ls_adgmv_usd(SUM)'] || 0),
+    ls_adg_mom:        toNum(obj['ls_adgmv_mom'] || 0),
+    ls_ams_spend:      toNum(obj['mtd_ls_ams_ad_spend_usd(SUM)'] || 0),
+    ls_ams_adi:        toNum(obj['mtd_ls_ams_adi(SUM)'] || 0),
+    ls_ams_adg:        toNum(obj['mtd_ls_ams_adgmv_usd(SUM)'] || 0),
+    ls_ams_ado:        toNum(obj['mtd_ls_ams_ado(SUM)'] || 0),
   };
 }
 
@@ -233,8 +248,8 @@ function sortData(data, key) {
   if (key==='adgDesc')   s.sort(function(a,b){return b.adg_usd-a.adg_usd;});
   if (key==='lsAdoDesc') s.sort(function(a,b){return b.ls_ado-a.ls_ado;});
   if (key==='lsAdgDesc') s.sort(function(a,b){return b.ls_adg_usd-a.ls_adg_usd;});
-  if (key==='momDesc')   s.sort(function(a,b){return b.ado_mom-a.ado_mom;});
-  if (key==='momAsc')    s.sort(function(a,b){return a.ado_mom-b.ado_mom;});
+  if (key==='momDesc')   s.sort(function(a,b){return b.ls_ado_mom-a.ls_ado_mom;});
+  if (key==='momAsc')    s.sort(function(a,b){return a.ls_ado_mom-b.ls_ado_mom;});
   return s;
 }
 
@@ -262,12 +277,6 @@ function initFilters() {
   var el=document.getElementById('l1Filter');
   el.innerHTML='<option value="">L1 类目</option>';
   l1s.sort().forEach(function(v){el.innerHTML+='<option value="'+v+'">'+v+'</option>';});
-
-  var stSeen={}, stVals=[];
-  products.forEach(function(p){if(p.seller_type&&!stSeen[p.seller_type]){stSeen[p.seller_type]=1;stVals.push(p.seller_type);}});
-  var stEl=document.getElementById('sellerTypeFilter');
-  stEl.innerHTML='<option value="">全部类型</option>';
-  stVals.sort().forEach(function(v){stEl.innerHTML+='<option value="'+v+'">'+v+'</option>';});
   updateL2();
 }
 
@@ -301,24 +310,23 @@ function render(dataList, page) {
   pageData.forEach(function(item){
     var flagHtml=getFlagImgHtml(item.site);
     var adoRangeStr=adoRange(item.ado);
+    var adoMomDisplay=(item.ado_mom>0?'+':'')+item.ado_mom.toFixed(1)+'%';
+    var adoMomClass=item.ado_mom>0?'ado-val':item.ado_mom<0?'adg-val':'';
     var lsAdoRangeStr=adoRange(item.ls_ado);
     var lsAdgRangeStr=adgRange(item.ls_adg_usd);
-    var momVal=item.ado_mom;
-    var adoClass=momVal>0?'pos':momVal<0?'neg':'zero';
-    var adoIcon=momVal>0?'▲':momVal<0?'▼':'–';
-    var momDisplay=(momVal>0?'+':'')+momVal.toFixed(1)+'%';
-    var sparkSvg=buildSparkline(momVal);
-    var adoBlock=adoRangeStr?(
+    var lsAdoMomVal=item.ls_ado_mom;
+    var lsAdoClass=lsAdoMomVal>0?'pos':lsAdoMomVal<0?'neg':'zero';
+    var lsAdoIcon=lsAdoMomVal>0?'▲':lsAdoMomVal<0?'▼':'–';
+    var lsAdoMomDisplay=(lsAdoMomVal>0?'+':'')+lsAdoMomVal.toFixed(1)+'%';
+    var sparkSvg=buildSparkline(lsAdoMomVal);
+    var adoBlock=
       '<div class="ado-block">'+
-        '<span class="ado-label">ADO MoM</span>'+
-        '<span class="ado-range '+adoClass+'">'+adoIcon+' '+momDisplay+'</span>'+
+        '<span class="ado-label">LS ADO MoM</span>'+
+        '<span class="ado-range '+lsAdoClass+'">'+lsAdoIcon+' '+lsAdoMomDisplay+'</span>'+
         '<div class="sparkline-wrap">'+sparkSvg+'</div>'+
-      '</div>'
-    ):'';
+      '</div>';
     var l3Html=item.l3?'<span class="pill pill-cat">'+item.l3+'</span>':'';
     var sellerPill=item.seller_type?'<span class="pill pill-seller">'+item.seller_type+'</span>':'';
-    var lsAdoMomDisplay=item.ls_ado_mom!==0?(item.ls_ado_mom>0?'+':'')+item.ls_ado_mom.toFixed(1)+'%':'—';
-    var lsAdoMomClass=item.ls_ado_mom>0?'ado-val':item.ls_ado_mom<0?'adg-val':'';
 
     var card=document.createElement('div');
     card.className='card';
@@ -335,14 +343,13 @@ function render(dataList, page) {
         adoBlock+
         '<div class="stats-row">'+
           '<div class="stat-box"><div class="stat-label">ADO MTD</div><div class="stat-value ado-val">'+(adoRangeStr||'—')+'</div></div>'+
-          '<div class="stat-box"><div class="stat-label">LS ADO MTD</div><div class="stat-value adg-val">'+(lsAdoRangeStr||'—')+'</div></div>'+
+          '<div class="stat-box"><div class="stat-label">ADO MoM</div><div class="stat-value '+adoMomClass+'">'+adoMomDisplay+'</div></div>'+
         '</div>'+
         '<div class="stats-row">'+
-          '<div class="stat-box"><div class="stat-label">LS ADG USD MTD</div><div class="stat-value adg-val">'+(lsAdgRangeStr?'$'+lsAdgRangeStr:'—')+'</div></div>'+
-          '<div class="stat-box"><div class="stat-label">LS ADO MoM</div><div class="stat-value '+lsAdoMomClass+'">'+lsAdoMomDisplay+'</div></div>'+
+          '<div class="stat-box"><div class="stat-label">LS ADO</div><div class="stat-value adg-val">'+(lsAdoRangeStr||'—')+'</div></div>'+
+          '<div class="stat-box"><div class="stat-label">LS ADG</div><div class="stat-value adg-val">'+(lsAdgRangeStr?'$'+lsAdgRangeStr:'—')+'</div></div>'+
         '</div>'+
         '<div class="footer-row">'+
-          '<span>🕐 '+item.update_time+'</span>'+
           '<span class="itemid-box" onclick="copyId(\''+item.itemid+'\')">ID: '+item.itemid+'</span>'+
         '</div>'+
       '</div>';
@@ -368,15 +375,23 @@ function applyFilters(){
   var l2=document.getElementById('l2Filter').value;
   var l3=document.getElementById('l3Filter').value;
   var site=document.getElementById('siteFilter').value;
-  var sellerType=document.getElementById('sellerTypeFilter').value;
+  var sellerTypeGroup=document.getElementById('sellerTypeFilter').value;
+  var operationType=document.getElementById('operationTypeFilter').value;
   var mom=document.getElementById('momFilter').value;
   var sort=document.getElementById('sortOrder').value;
   var filtered=products.filter(function(p){
+    var stMatch = true;
+    if (sellerTypeGroup === 'CB') {
+      stMatch = CB_TYPES.indexOf(p.seller_type) !== -1;
+    } else if (sellerTypeGroup === 'CNLS') {
+      stMatch = CNLS_TYPES.indexOf(p.seller_type) !== -1;
+    }
     return (!q||p.itemid.indexOf(q)!==-1||(p.shop_name||'').toLowerCase().indexOf(q)!==-1)&&
       (!l1||p.l1===l1)&&(!l2||p.l2===l2)&&(!l3||p.l3===l3)&&
       (!site||p.site===site)&&
-      (!sellerType||p.seller_type===sellerType)&&
-      (!mom||(mom==='pos'&&p.ado_mom>0)||(mom==='neg'&&p.ado_mom<0)||(mom==='zero'&&p.ado_mom===0));
+      stMatch&&
+      (!operationType||p.operation_type_l1===operationType)&&
+      (!mom||(mom==='pos'&&p.ls_ado_mom>0)||(mom==='neg'&&p.ls_ado_mom<0)||(mom==='zero'&&p.ls_ado_mom===0));
   });
   filteredData=sortData(filtered,sort);
   document.getElementById('countDisplay').textContent='共 '+filteredData.length+' 款';
@@ -385,7 +400,7 @@ function applyFilters(){
 
 function clearFilters(){
   document.getElementById('searchInput').value='';
-  ['l1Filter','l2Filter','l3Filter','siteFilter','sellerTypeFilter','momFilter'].forEach(function(id){document.getElementById(id).value='';});
+  ['l1Filter','l2Filter','l3Filter','siteFilter','sellerTypeFilter','operationTypeFilter','momFilter'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('sortOrder').value='adoDesc';
   updateL2();applyFilters();
 }
@@ -396,4 +411,3 @@ window.onload=loadData;
 </script>
 </body>
 </html>
-
