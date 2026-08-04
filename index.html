@@ -153,6 +153,12 @@ const pageSize = 40;
 const CB_TYPES = ['CNCB 1P', 'CNCB MP'];
 const CNLS_TYPES = ['CNLS - Reg role only', 'CNLS - RM role', 'Local Others'];
 
+function getSellerTypeGroup(sellerType) {
+  if (CB_TYPES.indexOf(sellerType) !== -1) return 'CB';
+  if (CNLS_TYPES.indexOf(sellerType) !== -1) return 'CNLS';
+  return '';
+}
+
 function getFlagImgHtml(c) {
   if (!c || c.length !== 2) return '';
   return '<img class="flag-img" src="https://flagcdn.com/w40/' + c.toLowerCase() + '.png" alt="' + c + '" onerror="this.style.display=\'none\'">';
@@ -326,7 +332,8 @@ function render(dataList, page) {
         '<div class="sparkline-wrap">'+sparkSvg+'</div>'+
       '</div>';
     var l3Html=item.l3?'<span class="pill pill-cat">'+item.l3+'</span>':'';
-    var sellerPill=item.seller_type?'<span class="pill pill-seller">'+item.seller_type+'</span>':'';
+    var sellerGroup=getSellerTypeGroup(item.seller_type);
+    var sellerPill=sellerGroup?'<span class="pill pill-seller">'+sellerGroup+'</span>':'';
 
     var card=document.createElement('div');
     card.className='card';
