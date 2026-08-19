@@ -1,47 +1,294 @@
 name: Sync Sheet Data
+
 on:
   schedule:
     - cron: '0 2 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-sheet-data
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fetch CSV and convert to JSON
+      - name: Fetch Sheets and build JSON
         run: |
-          python3 << 'EOF'
-          import csv, json, urllib.request, io
+          python3 << 'PY'
+          import csv
+          import io
+          import json
+          import math
+          import random
+          import time
+          import urllib.request
 
-          def fetch_json(url, label):
+          # Published Google Sheets CSV URLs
+          # ITEM: Hot SKU raw data + Category Overview product ranking source
+          ITEM_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT_iGV7eMPIih-3NYaS6akPERKKmuy9WFGTN4IUqEi0ZslYo2OyXePDyeU4DWhIuxrSGLghYpxE43Rd/pub?gid=105525607&single=true&output=csv"
+
+          # CB raw data: Category Overview category-level analysis source
+          CATEGORY_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT_iGV7eMPIih-3NYaS6akPERKKmuy9WFGTN4IUqEi0ZslYo2OyXePDyeU4DWhIuxrSGLghYpxE43Rd/pub?gid=541338884&single=true&output=csv"
+
+
+          def fetch_csv(url, label, expected_headers):
+              last_error = None
+              for attempt in range(1, 4):
+                  try:
+                      req = urllib.request.Request(
+                          url,
+                          headers={
+                              "User-Agent": "Mozilla/5.0",
+                              "Cache-Control": "no-cache",
+                          },
+                      )
+                      with urllib.request.urlopen(req, timeout=60) as response:
+                          if response.status != 200:
+                              raise RuntimeError(f"HTTP {response.status}")
+                          content = response.read().decode("utf-8-sig")
+
+                      reader = csv.DictReader(io.StringIO(content))
+                      rows = list(reader)
+                      headers = set(reader.fieldnames or [])
+
+                      missing = [h for h in expected_headers if h not in headers]
+                      if missing:
+                          raise RuntimeError(
+                              f"unexpected CSV header; missing: {', '.join(missing)}"
+                          )
+                      if not rows:
+                          raise RuntimeError("CSV returned 0 rows")
+
+                      print(f"OK {label}: {len(rows)} rows")
+                      return rows
+                  except Exception as exc:
+                      last_error = exc
+                      print(f"Attempt {attempt}/3 failed for {label}: {exc}")
+                      if attempt < 3:
+                          time.sleep(5 * attempt)
+
+              raise RuntimeError(f"ERROR {label}: {last_error}")
+
+
+          def clean(value):
+              if value is None:
+                  return ""
+              return str(value).replace("\t", "").replace('"', "").strip()
+
+
+          def num(value):
+              s = clean(value).replace(",", "").replace("%", "")
+              if not s:
+                  return 0.0
               try:
-                  req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                  with urllib.request.urlopen(req, timeout=30) as r:
-                      if r.status != 200:
-                          raise Exception(f"HTTP {r.status}")
-                      content = r.read().decode('utf-8-sig')
-              except Exception as e:
-                  print(f"ERROR {label}: {e}")
-                  raise
-              reader = csv.DictReader(
-                  io.StringIO(content)
-              )
-              rows = list(reader)
-              print(f"OK {label}: {len(rows)} rows")
-              return rows
+                  v = float(s)
+                  return v if math.isfinite(v) else 0.0
+              except Exception:
+                  return 0.0
 
-          data_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT_iGV7eMPIih-3NYaS6akPERKKmuy9WFGTN4IUqEi0ZslYo2OyXePDyeU4DWhIuxrSGLghYpxE43Rd/pub?gid=105525607&single=true&output=csv"
-          rows = fetch_json(data_url, "LS_DATA")
+
+          def item_id(value):
+              s = clean(value)
+              if s.endswith(".0"):
+                  s = s[:-2]
+              return s
+
+
+          def normalize_site(value):
+              s = clean(value).upper()
+              known = ["BR", "MX", "MY", "PH", "SG", "TH", "TW", "VN", "ID"]
+              for code in known:
+                  if s == code or code in s:
+                      return code
+              return s
+
+
+          def seller_group(value):
+              s = clean(value)
+              if s in {"CNCB 1P", "CNCB MP"}:
+                  return "CB"
+              if s in {"CNLS - Reg role only", "CNLS - RM role", "Local Others"}:
+                  return "CNLS"
+              if s == "CB Others":
+                  return "CB Others"
+              return s
+
+
+          def date_text(value):
+              s = clean(value)
+              # Covers both 2026-08-01 and 2026-08-01 00:00:00 style values.
+              return s[:10] if len(s) >= 10 else s
+
+
+          def round_index(value):
+              return round(value, 6)
+
+
+          # IMPORTANT:
+          # Category Overview must not publish real LS ADO / LS ADGMV absolute values.
+          # A new unknown positive scale is generated on every workflow run.
+          # The SAME scale is used for current/previous-period values, so ranking,
+          # share, MoM and relative distribution remain mathematically unchanged.
+          rng = random.SystemRandom()
+          ADO_SCALE = rng.uniform(0.017, 0.091)
+          ADG_SCALE = rng.uniform(0.00017, 0.00193)
+
+
+          item_rows = fetch_csv(
+              ITEM_URL,
+              "ITEM",
+              [
+                  "item_id",
+                  "grass_region",
+                  "operation_type_l1",
+                  "seller_type",
+                  "cb_level1_global_be_category",
+                  "level2_global_be_category",
+                  "level3_global_be_category",
+                  "item_image",
+                  "mtd_ls_ado(SUM)",
+                  "m_1_ls_ado(SUM)",
+                  "mtd_ls_adgmv_usd(SUM)",
+                  "m_1_ls_adgmv_usd(SUM)",
+              ],
+          )
+
+          category_rows = fetch_csv(
+              CATEGORY_URL,
+              "CB raw data",
+              [
+                  "year_month",
+                  "operation_type_l1",
+                  "seller_type",
+                  "grass_region",
+                  "cb_level1_global_be_category",
+                  "level2_global_be_category",
+                  "level3_global_be_category",
+                  "LS ADO",
+                  "LS ADGMV",
+              ],
+          )
+
+
+          # 1) Original Hot SKU page.
+          # Keep the existing raw ITEM schema so the original page behavior does not change.
           with open("data.json", "w", encoding="utf-8") as f:
-              json.dump(rows, f, ensure_ascii=False)
-          EOF
+              json.dump(
+                  item_rows,
+                  f,
+                  ensure_ascii=False,
+                  separators=(",", ":"),
+              )
+          print(f"WROTE data.json: {len(item_rows)} rows")
+
+
+          # 2) Category Overview category analysis.
+          # Source = CB raw data. Only desensitized relative indexes are written.
+          category_output = []
+          for row in category_rows:
+              site = normalize_site(row.get("grass_region"))
+              l1 = clean(row.get("cb_level1_global_be_category"))
+              l2 = clean(row.get("level2_global_be_category"))
+              l3 = clean(row.get("level3_global_be_category"))
+              op = clean(row.get("operation_type_l1"))
+
+              # Ignore completely blank / malformed rows.
+              if not site and not l1 and not l2 and not l3:
+                  continue
+
+              category_output.append(
+                  {
+                      "month": date_text(row.get("year_month")),
+                      "op": op,
+                      "seller": seller_group(row.get("seller_type")),
+                      "site": site,
+                      "l1": l1,
+                      "l2": l2,
+                      "l3": l3,
+                      "ado_i": round_index(num(row.get("LS ADO")) * ADO_SCALE),
+                      "adg_i": round_index(num(row.get("LS ADGMV")) * ADG_SCALE),
+                  }
+              )
+
+          category_payload = {
+              "source": "CB raw data",
+              "metric_note": "relative indexes only",
+              "rows": category_output,
+          }
+
+          with open("category_data.json", "w", encoding="utf-8") as f:
+              json.dump(
+                  category_payload,
+                  f,
+                  ensure_ascii=False,
+                  separators=(",", ":"),
+              )
+          print(f"WROTE category_data.json: {len(category_output)} rows")
+
+
+          # 3) Category Overview Top 10 products.
+          # Source = ITEM. Ranking remains equivalent to real LS ADGMV descending,
+          # because every product is multiplied by the same positive ADG scale.
+          item_output = []
+          for row in item_rows:
+              iid = item_id(row.get("item_id"))
+              if not iid:
+                  continue
+
+              item_output.append(
+                  {
+                      "itemid": iid,
+                      "site": normalize_site(row.get("grass_region")),
+                      "seller": seller_group(row.get("seller_type")),
+                      "op": clean(row.get("operation_type_l1")),
+                      "shop": clean(row.get("shop_name")),
+                      "l1": clean(row.get("cb_level1_global_be_category")),
+                      "l2": clean(row.get("level2_global_be_category")),
+                      "l3": clean(row.get("level3_global_be_category")),
+                      "img": clean(row.get("item_image")),
+                      "update": clean(row.get("update_time")),
+                      "ado_i": round_index(num(row.get("mtd_ls_ado(SUM)")) * ADO_SCALE),
+                      "adg_i": round_index(num(row.get("mtd_ls_adgmv_usd(SUM)")) * ADG_SCALE),
+                      "ado_m1_i": round_index(num(row.get("m_1_ls_ado(SUM)")) * ADO_SCALE),
+                      "adg_m1_i": round_index(num(row.get("m_1_ls_adgmv_usd(SUM)")) * ADG_SCALE),
+                  }
+              )
+
+          item_payload = {
+              "source": "ITEM",
+              "metric_note": "relative indexes only",
+              "rows": item_output,
+          }
+
+          with open("item_data.json", "w", encoding="utf-8") as f:
+              json.dump(
+                  item_payload,
+                  f,
+                  ensure_ascii=False,
+                  separators=(",", ":"),
+              )
+          print(f"WROTE item_data.json: {len(item_output)} rows")
+
+          # Final validation: never silently publish empty dashboard files.
+          if not category_output:
+              raise RuntimeError("category_data.json would be empty")
+          if not item_output:
+              raise RuntimeError("item_data.json would be empty")
+
+          print("ALL JSON FILES BUILT SUCCESSFULLY")
+          PY
 
       - name: Commit and push
         run: |
           git config user.name "actions-user"
           git config user.email "actions@github.com"
-          git add data.json
-          git diff --staged --quiet || git commit -m "Auto sync data"
+          git add data.json category_data.json item_data.json
+          git diff --staged --quiet || git commit -m "Auto sync site data"
           git push
