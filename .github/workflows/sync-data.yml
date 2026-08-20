@@ -153,6 +153,8 @@ jobs:
                   "level2_global_be_category",
                   "level3_global_be_category",
                   "item_image",
+                  "mtd_ado(SUM)",
+                  "mtd_adgmv_usd(SUM)",
                   "mtd_ls_ado(SUM)",
                   "m_1_ls_ado(SUM)",
                   "mtd_ls_adgmv_usd(SUM)",
@@ -218,7 +220,7 @@ jobs:
               )
 
           category_payload = {
-              "source": "CB raw data",
+              "source": "category_aggregate",
               "metric_note": "relative indexes only",
               "rows": category_output,
           }
@@ -248,21 +250,22 @@ jobs:
                       "site": normalize_site(row.get("grass_region")),
                       "seller": seller_group(row.get("seller_type")),
                       "op": clean(row.get("operation_type_l1")),
-                      "shop": clean(row.get("shop_name")),
                       "l1": clean(row.get("cb_level1_global_be_category")),
                       "l2": clean(row.get("level2_global_be_category")),
                       "l3": clean(row.get("level3_global_be_category")),
                       "img": clean(row.get("item_image")),
-                      "update": clean(row.get("update_time")),
+                      "update": date_text(row.get("update_time")),
                       "ado_i": round_index(num(row.get("mtd_ls_ado(SUM)")) * ADO_SCALE),
                       "adg_i": round_index(num(row.get("mtd_ls_adgmv_usd(SUM)")) * ADG_SCALE),
+                      "ado_total_i": round_index(num(row.get("mtd_ado(SUM)")) * ADO_SCALE),
+                      "adg_total_i": round_index(num(row.get("mtd_adgmv_usd(SUM)")) * ADG_SCALE),
                       "ado_m1_i": round_index(num(row.get("m_1_ls_ado(SUM)")) * ADO_SCALE),
                       "adg_m1_i": round_index(num(row.get("m_1_ls_adgmv_usd(SUM)")) * ADG_SCALE),
                   }
               )
 
           item_payload = {
-              "source": "ITEM",
+              "source": "product_detail",
               "metric_note": "relative indexes only",
               "rows": item_output,
           }
