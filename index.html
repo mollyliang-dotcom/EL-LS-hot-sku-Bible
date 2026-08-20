@@ -395,7 +395,7 @@ function render(dataList, page) {
           '<div class="stat-box"><div class="stat-label">LS ADG</div><div class="stat-value adg-val">'+(lsAdgRangeStr?'$'+lsAdgRangeStr:'—')+'</div></div>'+
         '</div>'+
         '<div class="footer-row">'+
-          '<span class="itemid-box" onclick="copyId(\''+(item.item_name||item.itemid).replace(/\'/g,\"\\'\")+'\')">'+(item.item_name||item.itemid)+'</span>'+
+          '<span class="itemid-box">'+(item.item_name||item.itemid)+'</span>'+
         '</div>'+
       '</div>';
     grid.appendChild(card);
@@ -492,7 +492,7 @@ const CATEGORY_HTML = `<!DOCTYPE html>
   <div class="card"><div class="card-head"><div><div class="card-title">当前筛选类目 Top 10 产品</div><div class="card-note">按 LS ADGMV 规模降序排序；前台不展示绝对值</div></div></div><div class="table-wrap"><table><thead><tr><th>排名</th><th>产品图片</th><th>Item ID</th><th>站点</th><th>类目</th><th>直播类型</th><th>LS ADGMV 占比</th><th>LS ADO 占比</th><th>LS ADO MoM</th><th>LS ADGMV MoM</th></tr></thead><tbody id="productTable"></tbody></table></div></div>
 </div><div>
   <div class="card"><div class="card-head"><div><div class="card-title">站点直播贡献</div><div class="card-note">当前筛选下各站点 LS ADGMV 占比</div></div></div><div id="siteBars" class="bar-list"></div></div>
-  <div class="card"><div class="card-head"><div><div class="card-title">自动洞察</div><div class="card-note">当前筛选下 L3 类目增长表现</div></div></div><div id="insights"></div></div>
+  <div class="card"><div class="card-head"><div><div class="card-title">自动洞察</div><div class="card-note">按本期较上期增长绝对量识别 L3 类目增长表现</div></div></div><div id="insights"></div></div>
 </div></section>
 </main><footer>Shopee LS Hot SKU Bible · Category Overview</footer>
 <div id="productImageModal" role="dialog" aria-modal="true" aria-label="产品图片放大预览">
@@ -538,18 +538,18 @@ function renderSide(rows){
     g.adoM1+=(+r.ado_m1_i||0);
   });
   const growthRows=[...growthMap.values()];
-  const bestAdg=growthRows.slice().sort((a,b)=>(b.adg-b.adgM1)-(a.adg-a.adgM1))[0];
-  const bestAdo=growthRows.slice().sort((a,b)=>(b.ado-b.adoM1)-(a.ado-a.adoM1))[0];
+  const bestAdg=growthRows
+    .filter(g=>(g.adg-g.adgM1)>0)
+    .sort((a,b)=>(b.adg-b.adgM1)-(a.adg-a.adgM1))[0];
+  const bestAdo=growthRows
+    .filter(g=>(g.ado-g.adoM1)>0)
+    .sort((a,b)=>(b.ado-b.adoM1)-(a.ado-a.adoM1))[0];
   const arr=[];
   if(bestAdg){
-    const rate=mom(bestAdg.adg,bestAdg.adgM1);
-    const trend=Number.isFinite(rate)?\`，MoM \${(rate>0?'+':'')+fp(rate)}\`:'';
-    arr.push(\`<div class="insight"><strong>L3 直播销售额增长领先：</strong>\${esc(bestAdg.name)}\${trend}。</div>\`);
+    arr.push(\`<div class="insight"><strong>L3 直播销售额增长领先：</strong>\${esc(bestAdg.name)}。</div>\`);
   }
   if(bestAdo){
-    const rate=mom(bestAdo.ado,bestAdo.adoM1);
-    const trend=Number.isFinite(rate)?\`，MoM \${(rate>0?'+':'')+fp(rate)}\`:'';
-    arr.push(\`<div class="insight"><strong>L3 直播单量增长领先：</strong>\${esc(bestAdo.name)}\${trend}。</div>\`);
+    arr.push(\`<div class="insight"><strong>L3 直播单量增长领先：</strong>\${esc(bestAdo.name)}。</div>\`);
   }
   if(sites[0])arr.push(\`<div class="insight"><strong>核心站点：</strong>\${esc(sites[0].name)}，贡献当前筛选 \${fp(pct(sites[0].adg_i,den))} 的 LS ADGMV。</div>\`);
   $('insights').innerHTML=arr.join('')||'<div class="empty">暂无数据</div>';
