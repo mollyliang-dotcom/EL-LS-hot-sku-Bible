@@ -523,7 +523,7 @@ function renderSide(rows){
   const sites=agg(rows,'site').sort((a,b)=>b.adg_i-a.adg_i),den=sum(rows,'adg_i');
   $('siteBars').innerHTML=sites.map(g=>{
     const p=pct(g.adg_i,den);
-    return`<div class="bar-row"><div class="bar-label">${esc(g.name)}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(p,1)}%"></div></div><div class="bar-value">${fp(p)}</div></div>`
+    return\`<div class="bar-row"><div class="bar-label">\${esc(g.name)}</div><div class="bar-track"><div class="bar-fill" style="width:\${Math.max(p,1)}%"></div></div><div class="bar-value">\${fp(p)}</div></div>\`
   }).join('')||'<div class="empty">暂无数据</div>';
 
   const growthMap=new Map();
@@ -543,15 +543,15 @@ function renderSide(rows){
   const arr=[];
   if(bestAdg){
     const rate=mom(bestAdg.adg,bestAdg.adgM1);
-    const trend=Number.isFinite(rate)?`，MoM ${(rate>0?'+':'')+fp(rate)}`:'';
-    arr.push(`<div class="insight"><strong>L3 直播销售额增长领先：</strong>${esc(bestAdg.name)}${trend}。</div>`);
+    const trend=Number.isFinite(rate)?\`，MoM \${(rate>0?'+':'')+fp(rate)}\`:'';
+    arr.push(\`<div class="insight"><strong>L3 直播销售额增长领先：</strong>\${esc(bestAdg.name)}\${trend}。</div>\`);
   }
   if(bestAdo){
     const rate=mom(bestAdo.ado,bestAdo.adoM1);
-    const trend=Number.isFinite(rate)?`，MoM ${(rate>0?'+':'')+fp(rate)}`:'';
-    arr.push(`<div class="insight"><strong>L3 直播单量增长领先：</strong>${esc(bestAdo.name)}${trend}。</div>`);
+    const trend=Number.isFinite(rate)?\`，MoM \${(rate>0?'+':'')+fp(rate)}\`:'';
+    arr.push(\`<div class="insight"><strong>L3 直播单量增长领先：</strong>\${esc(bestAdo.name)}\${trend}。</div>\`);
   }
-  if(sites[0])arr.push(`<div class="insight"><strong>核心站点：</strong>${esc(sites[0].name)}，贡献当前筛选 ${fp(pct(sites[0].adg_i,den))} 的 LS ADGMV。</div>`);
+  if(sites[0])arr.push(\`<div class="insight"><strong>核心站点：</strong>\${esc(sites[0].name)}，贡献当前筛选 \${fp(pct(sites[0].adg_i,den))} 的 LS ADGMV。</div>\`);
   $('insights').innerHTML=arr.join('')||'<div class="empty">暂无数据</div>';
 }
 function render(){const rows=catFiltered(),bubbles=bubbleRows();renderBubbles(bubbles);renderMatrix(bubbles);renderKPIs();renderContribution(rows);renderProducts();renderSide(rows)}
