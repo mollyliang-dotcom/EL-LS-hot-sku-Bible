@@ -351,6 +351,8 @@ function render(dataList, page) {
   pageData.forEach(function(item){
     var flagHtml=getFlagImgHtml(item.site);
     var adoRangeStr=adoRange(item.ado);
+    var priceUsd=item.ado>0?(item.adg_usd/item.ado):NaN;
+    var priceUsdDisplay=Number.isFinite(priceUsd)?'$'+priceUsd.toFixed(2):'—';
     var adoMomDisplay=(item.ado_mom>0?'+':'')+item.ado_mom.toFixed(1)+'%';
     var adoMomClass=item.ado_mom>0?'ado-val':item.ado_mom<0?'adg-val':'';
     var lsAdoRangeStr=adoRange(item.ls_ado);
@@ -392,8 +394,11 @@ function render(dataList, page) {
           '<div class="stat-box"><div class="stat-label">LS ADO</div><div class="stat-value adg-val">'+(lsAdoRangeStr||'—')+'</div></div>'+
           '<div class="stat-box"><div class="stat-label">LS ADG</div><div class="stat-value adg-val">'+(lsAdgRangeStr?'$'+lsAdgRangeStr:'—')+'</div></div>'+
         '</div>'+
+        '<div class="stats-row">'+
+          '<div class="stat-box"><div class="stat-label">PRICE (USD)</div><div class="stat-value">'+priceUsdDisplay+'</div></div>'+
+        '</div>'+
         '<div class="footer-row">'+
-          '<span class="itemid-box" onclick="copyId(\''+item.itemid+'\')">ID: '+item.itemid+'</span>'+
+          '<span class="itemid-box" data-itemid="'+item.itemid+'">ID: '+item.itemid+'</span>'+
         '</div>'+
       '</div>';
     grid.appendChild(card);
@@ -404,6 +409,7 @@ function render(dataList, page) {
 
 function openModal(src){document.getElementById('modalImg').src=src;document.getElementById('imageModal').style.display='flex';}
 function copyId(id){navigator.clipboard.writeText(id).then(function(){showToast('已复制 ID: '+id);});}
+document.addEventListener('click',function(e){var el=e.target.closest('.itemid-box[data-itemid]');if(el){copyId(el.getAttribute('data-itemid'));}});
 function renderPagination(total){
   var tp=Math.ceil(total/pageSize)||1;
   document.getElementById('pagination').innerHTML=
@@ -485,7 +491,7 @@ const CATEGORY_HTML = `<!DOCTYPE html>
   <div class="card"><div class="card-head"><div><div class="card-title">当前筛选类目 Top 10 产品</div><div class="card-note">按 LS ADGMV 规模降序排序；前台不展示绝对值</div></div></div><div class="table-wrap"><table><thead><tr><th>排名</th><th>产品图片</th><th>Item ID</th><th>站点</th><th>类目</th><th>直播类型</th><th>LS ADGMV 占比</th><th>LS ADO 占比</th><th>LS ADO MoM</th><th>LS ADGMV MoM</th></tr></thead><tbody id="productTable"></tbody></table></div></div>
 </div><div>
   <div class="card"><div class="card-head"><div><div class="card-title">站点直播贡献</div><div class="card-note">当前筛选下各站点 LS ADGMV 占比</div></div></div><div id="siteBars" class="bar-list"></div></div>
-  <div class="card"><div class="card-head"><div><div class="card-title">自动洞察</div><div class="card-note">按本期较上期增长绝对量识别 L3 类目增长表现</div></div></div><div id="insights"></div></div>
+  <div class="card"><div class="card-head"><div><div class="card-title">自动洞察</div><div class="card-note">按本期较上期增长绝对量识别 L2 类目增长表现，并补充其下 L3 增长亮点</div></div></div><div id="insights"></div></div>
 </div></section>
 </main><footer>Shopee LS Hot SKU Bible · Category Overview</footer>
 <div id="productImageModal" role="dialog" aria-modal="true" aria-label="产品图片放大预览">
@@ -519,30 +525,58 @@ function renderSide(rows){
     return\`<div class="bar-row"><div class="bar-label">\${esc(g.name)}</div><div class="bar-track"><div class="bar-fill" style="width:\${Math.max(p,1)}%"></div></div><div class="bar-value">\${fp(p)}</div></div>\`
   }).join('')||'<div class="empty">暂无数据</div>';
 
-  const growthMap=new Map();
+  const l2Map=new Map();
+  const l3Map=new Map();
   itemFiltered().forEach(r=>{
-    const name=r.l3||'';
-    if(!name)return;
-    if(!growthMap.has(name))growthMap.set(name,{name,adg:0,adgM1:0,ado:0,adoM1:0});
-    const g=growthMap.get(name);
-    g.adg+=(+r.adg_i||0);
-    g.adgM1+=(+r.adg_m1_i||0);
-    g.ado+=(+r.ado_i||0);
-    g.adoM1+=(+r.ado_m1_i||0);
+    const l2=r.l2||'';
+    const l3=r.l3||'';
+    if(!l2)return;
+
+    if(!l2Map.has(l2))l2Map.set(l2,{name:l2,adg:0,adgM1:0,ado:0,adoM1:0});
+    const g2=l2Map.get(l2);
+    g2.adg+=(+r.adg_i||0);
+    g2.adgM1+=(+r.adg_m1_i||0);
+    g2.ado+=(+r.ado_i||0);
+    g2.adoM1+=(+r.ado_m1_i||0);
+
+    if(l3){
+      const key=l2+'||'+l3;
+      if(!l3Map.has(key))l3Map.set(key,{l2:l2,name:l3,adg:0,adgM1:0,ado:0,adoM1:0});
+      const g3=l3Map.get(key);
+      g3.adg+=(+r.adg_i||0);
+      g3.adgM1+=(+r.adg_m1_i||0);
+      g3.ado+=(+r.ado_i||0);
+      g3.adoM1+=(+r.ado_m1_i||0);
+    }
   });
-  const growthRows=[...growthMap.values()];
-  const bestAdg=growthRows
+
+  const l2Rows=[...l2Map.values()];
+  const l3Rows=[...l3Map.values()];
+  const bestAdg=l2Rows
     .filter(g=>(g.adg-g.adgM1)>0)
     .sort((a,b)=>(b.adg-b.adgM1)-(a.adg-a.adgM1))[0];
-  const bestAdo=growthRows
+  const bestAdo=l2Rows
     .filter(g=>(g.ado-g.adoM1)>0)
     .sort((a,b)=>(b.ado-b.adoM1)-(a.ado-a.adoM1))[0];
+
+  const topL3=(l2,metric)=>{
+    const cur=metric==='adg'?'adg':'ado';
+    const prev=metric==='adg'?'adgM1':'adoM1';
+    return l3Rows
+      .filter(g=>g.l2===l2&&(g[cur]-g[prev])>0)
+      .sort((a,b)=>(b[cur]-b[prev])-(a[cur]-a[prev]))
+      .slice(0,3)
+      .map(g=>g.name);
+  };
+
   const arr=[];
   if(bestAdg){
-    arr.push(\`<div class="insight"><strong>L3 直播销售额增长领先：</strong>\${esc(bestAdg.name)}。</div>\`);
+    const l3s=topL3(bestAdg.name,'adg');
+    arr.push(\`<div class="insight"><strong>L2 直播销售额增长领先：</strong>\${esc(bestAdg.name)}\${l3s.length?'；其中 '+l3s.map(esc).join('、')+' 等 L3 类目增长较好':''}。</div>\`);
   }
   if(bestAdo){
-    arr.push(\`<div class="insight"><strong>L3 直播单量增长领先：</strong>\${esc(bestAdo.name)}。</div>\`);
+    const l3s=topL3(bestAdo.name,'ado');
+    arr.push(\`<div class="insight"><strong>L2 直播单量增长领先：</strong>\${esc(bestAdo.name)}\${l3s.length?'；其中 '+l3s.map(esc).join('、')+' 等 L3 类目增长较好':''}。</div>\`);
   }
   if(sites[0])arr.push(\`<div class="insight"><strong>核心站点：</strong>\${esc(sites[0].name)}，贡献当前筛选 \${fp(pct(sites[0].adg_i,den))} 的 LS ADGMV。</div>\`);
   $('insights').innerHTML=arr.join('')||'<div class="empty">暂无数据</div>';
