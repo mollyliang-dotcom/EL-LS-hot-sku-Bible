@@ -84,7 +84,7 @@ select#sortOrder { border-color: var(--primary); color: var(--primary-dark); fon
 .stat-value { font-size: 12px; font-weight: 700; white-space: nowrap; }
 .stat-value.ado-val { color: var(--success); } .stat-value.adg-val { color: var(--info); }
 .footer-row { display: flex; justify-content: flex-end; align-items: center; border-top: 1px solid var(--border); padding-top: 10px; margin-top: auto; font-size: 11px; color: var(--text-muted); }
-.itemid-box { font-family: monospace; background: var(--bg); padding: 2px 7px; border-radius: 4px; border: 1px dashed #ddd; cursor: pointer; }
+.itemid-box { font-family: monospace; background: #fffafa; color: var(--text-muted); padding: 3px 9px; border-radius: 6px; border: 1px dashed #e6d9df; cursor: pointer; font-size: 11px; letter-spacing: .2px; }
 #imageModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; justify-content: center; align-items: center; cursor: zoom-out; }
 #imageModal img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
 #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); background: #333; color: white; padding: 10px 22px; border-radius: 30px; font-size: 13px; opacity: 0; transition: all 0.3s; z-index: 10000; }
@@ -101,7 +101,7 @@ footer { text-align: center; color: var(--text-muted); font-size: 11px; padding:
   <div class="header-inner">
     <h1>Shopee Livestream Hot SKU Bible <span class="badge">External</span></h1>
     <div class="header-desc">
-      ✨ 直播精选热销品，涵盖多站点，帮你快速锁定爆款选品<br>
+      ✨ 直播精选热销品 · 涵盖多站点，帮你快速锁定爆款选品<br>
       📊 ADO 与 ADG 采用区间脱敏展示<br>
       🔒 提示：当前页面仅供内部选品参考，不提供外部商品跳转链接。
     </div>
@@ -112,8 +112,6 @@ footer { text-align: center; color: var(--text-muted); font-size: 11px; padding:
 <div class="container">
   <div class="filter-section">
     <div class="filter-row">
-      <span class="filter-label">🔍 标题</span>
-      <input type="text" id="searchInput" placeholder="输入产品标题关键词..." oninput="debouncedFilter()">
       <select id="l1Filter" onchange="updateL2(); applyFilters()"><option value="">L1 类目</option></select>
       <select id="l2Filter" onchange="updateL3(); applyFilters()"><option value="">L2 类目</option></select>
       <select id="l3Filter" onchange="applyFilters()"><option value="">L3 类目</option></select>
@@ -381,8 +379,8 @@ function render(dataList, page) {
         '<img src="'+item.imgUrl+'" loading="lazy" onerror="this.style.display=\\'none\\';this.parentNode.innerHTML+=\\'<div style=&quot;font-size:40px;color:#ddd&quot;>📦</div>\\'">'+
       '</div>'+
       '<div class="info">'+
-        '<div class="item-title" title="'+(item.item_name||item.itemid)+(item.l4?' · '+item.l4:'')+'">'+
-          (item.item_name||item.itemid)+
+        '<div class="item-title" title="'+(item.item_name||'')+(item.l4?' · '+item.l4:'')+'">'+
+          (item.item_name||'—')+
         '</div>'+
         '<div class="meta-row">'+sellerPill+l3Html+'</div>'+
         adoBlock+
@@ -395,7 +393,7 @@ function render(dataList, page) {
           '<div class="stat-box"><div class="stat-label">LS ADG</div><div class="stat-value adg-val">'+(lsAdgRangeStr?'$'+lsAdgRangeStr:'—')+'</div></div>'+
         '</div>'+
         '<div class="footer-row">'+
-          '<span class="itemid-box">'+(item.item_name||item.itemid)+'</span>'+
+          '<span class="itemid-box" onclick="copyId(\''+item.itemid+'\')">ID: '+item.itemid+'</span>'+
         '</div>'+
       '</div>';
     grid.appendChild(card);
@@ -417,7 +415,6 @@ function changePage(d){render(filteredData,currentPage+d);window.scrollTo(0,0);}
 
 
 function applyFilters(){
-  var q=document.getElementById('searchInput').value.toLowerCase();
   var l1=document.getElementById('l1Filter').value;
   var l2=document.getElementById('l2Filter').value;
   var l3=document.getElementById('l3Filter').value;
@@ -433,8 +430,7 @@ function applyFilters(){
     } else if (sellerTypeGroup === 'CNLS') {
       stMatch = CNLS_TYPES.indexOf(p.seller_type) !== -1;
     }
-    return (!q||(p.item_name||'').toLowerCase().indexOf(q)!==-1)&&
-      (!l1||p.l1===l1)&&(!l2||p.l2===l2)&&(!l3||p.l3===l3)&&
+    return (!l1||p.l1===l1)&&(!l2||p.l2===l2)&&(!l3||p.l3===l3)&&
       (!site||p.site===site)&&
       stMatch&&
       (!operationType||p.operation_type_l1===operationType)&&
@@ -447,15 +443,12 @@ function applyFilters(){
 
 
 function clearFilters(){
-  document.getElementById('searchInput').value='';
   ['l1Filter','l2Filter','l3Filter','siteFilter','sellerTypeFilter','operationTypeFilter','momFilter'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('sortOrder').value='adoDesc';
   updateL2();applyFilters();
 }
 
 
-var timer;
-function debouncedFilter(){clearTimeout(timer);timer=setTimeout(applyFilters,300);}
 window.onload=loadData;
 <\/script>
 </body>
