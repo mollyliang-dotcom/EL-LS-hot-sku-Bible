@@ -559,11 +559,11 @@ function renderSide(rows){
     .filter(g=>(g.ado-g.adoM1)>0)
     .sort((a,b)=>(b.ado-b.adoM1)-(a.ado-a.adoM1))[0];
 
-  const topL3=(l2,metric)=>{
+  const topL3=(metric)=>{
     const cur=metric==='adg'?'adg':'ado';
     const prev=metric==='adg'?'adgM1':'adoM1';
     return l3Rows
-      .filter(g=>g.l2===l2&&(g[cur]-g[prev])>0)
+      .filter(g=>(g[cur]-g[prev])>0)
       .sort((a,b)=>(b[cur]-b[prev])-(a[cur]-a[prev]))
       .slice(0,3)
       .map(g=>g.name);
@@ -571,12 +571,12 @@ function renderSide(rows){
 
   const arr=[];
   if(bestAdg){
-    const l3s=topL3(bestAdg.name,'adg');
-    arr.push(\`<div class="insight"><strong>L2 直播销售额增长领先：</strong>\${esc(bestAdg.name)}\${l3s.length?'；其中 '+l3s.map(esc).join('、')+' 等 L3 类目增长较好':''}。</div>\`);
+    const l3s=topL3('adg');
+    arr.push(\`<div class="insight"><strong>L2 直播销售额增长领先：</strong>\${esc(bestAdg.name)}。\${l3s.length?'<br><strong>L3 销售额增长较好：</strong>'+l3s.map(esc).join('、')+'。':''}</div>\`);
   }
   if(bestAdo){
-    const l3s=topL3(bestAdo.name,'ado');
-    arr.push(\`<div class="insight"><strong>L2 直播单量增长领先：</strong>\${esc(bestAdo.name)}\${l3s.length?'；其中 '+l3s.map(esc).join('、')+' 等 L3 类目增长较好':''}。</div>\`);
+    const l3s=topL3('ado');
+    arr.push(\`<div class="insight"><strong>L2 直播单量增长领先：</strong>\${esc(bestAdo.name)}。\${l3s.length?'<br><strong>L3 单量增长较好：</strong>'+l3s.map(esc).join('、')+'。':''}</div>\`);
   }
   if(sites[0])arr.push(\`<div class="insight"><strong>核心站点：</strong>\${esc(sites[0].name)}，贡献当前筛选 \${fp(pct(sites[0].adg_i,den))} 的 LS ADGMV。</div>\`);
   $('insights').innerHTML=arr.join('')||'<div class="empty">暂无数据</div>';
