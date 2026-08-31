@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-Q794R5X0RK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-Q794R5X0RK', { send_page_view: false });
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Shopee Livestream Hot SKU Bible</title>
@@ -609,9 +617,22 @@ function switchPage(page) {
   document.getElementById('skuFrame').classList.toggle('active', sku);
   document.getElementById('categoryFrame').classList.toggle('active', !sku);
   history.replaceState(null, '', sku ? '#sku' : '#category');
+
+  // GA4: record each Bible section as a page view.
+  if (typeof gtag === 'function') {
+    gtag('event', 'page_view', {
+      page_title: sku ? 'Livestream Hot SKU' : 'Livestream Category Overview',
+      page_location: window.location.href,
+      page_path: window.location.pathname + window.location.hash
+    });
+    gtag('event', 'page_section_view', {
+      section_name: sku ? 'sku' : 'category'
+    });
+  }
 }
 
-if (location.hash === '#category') switchPage('category');
+// Always initialize through switchPage so the first visit is also recorded.
+switchPage(location.hash === '#category' ? 'category' : 'sku');
 </script>
 </body>
 </html>
